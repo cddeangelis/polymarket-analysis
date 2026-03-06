@@ -1,3 +1,5 @@
+import json
+import time
 import requests
 import pandas as pd
 
@@ -8,9 +10,9 @@ GOLDSKY_SUBGRAPH = (
 )
 
 ORDER_FILLED_BY_MAKER_QUERY = """
-query($token_ids: [String!]!, $last_id: String!) {
+query($token_ids: [String!]!, $last_id: String!, $page_size: Int!) {
   orderFilledEvents(
-    first: 1000,
+    first: $page_size,
     where: {
       makerAssetId_in: $token_ids,
       id_gt: $last_id
@@ -29,9 +31,9 @@ query($token_ids: [String!]!, $last_id: String!) {
 """
 
 ORDER_FILLED_BY_TAKER_QUERY = """
-query($token_ids: [String!]!, $last_id: String!) {
+query($token_ids: [String!]!, $last_id: String!, $page_size: Int!) {
   orderFilledEvents(
-    first: 1000,
+    first: $page_size,
     where: {
       takerAssetId_in: $token_ids,
       id_gt: $last_id
@@ -55,17 +57,21 @@ def get_market_info(slug: str) -> dict:
     resp.raise_for_status()
     market = resp.json()
 
-    tokens = market.get("tokens", [])
-    yes_token = next((t for t in tokens if t["outcome"] == "Yes"), None)
-    no_token = next((t for t in tokens if t["outcome"] == "No"), None)
+    # API returns clobTokenIds and outcomes as JSON strings
+    token_ids = json.loads(market.get("clobTokenIds", "[]"))
+    outcomes = json.loads(market.get("outcomes", "[]"))
 
-    if not yes_token or not no_token:
+    token_map = dict(zip(outcomes, token_ids))
+    yes_token_id = token_map.get("Yes")
+    no_token_id = token_map.get("No")
+
+    if not yes_token_id or not no_token_id:
         raise ValueError(f"Could not find Yes/No tokens for market '{slug}'")
 
     return {
         "question": market["question"],
-        "yes_token_id": yes_token["token_id"],
-        "no_token_id": no_token["token_id"],
+        "yes_token_id": yes_token_id,
+        "no_token_id": no_token_id,
         "condition_id": market.get("conditionId", ""),
     }
 
@@ -73,20 +79,46 @@ def get_market_info(slug: str) -> dict:
 def _run_subgraph_query(query: str, token_ids: list[str]) -> list[dict]:
     all_events = []
     last_id = ""
+    page_size = 1000
 
     while True:
-        resp = requests.post(
-            GOLDSKY_SUBGRAPH,
-            json={
-                "query": query,
-                "variables": {"token_ids": token_ids, "last_id": last_id},
-            },
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        for attempt in range(4):
+            try:
+                resp = requests.post(
+                    GOLDSKY_SUBGRAPH,
+                    json={
+                        "query": query,
+                        "variables": {
+                            "token_ids": token_ids,
+                            "last_id": last_id,
+                            "page_size": page_size,
+                        },
+                    },
+                    timeout=30,
+                )
+                resp.raise_for_status()
+            except requests.exceptions.RequestException as exc:
+                page_size = max(100, page_size // 2)
+                wait = 2 ** attempt
+                print(f"  Request error ({exc}), reducing page size to {page_size}, retrying in {wait}s (attempt {attempt + 1}/4)...")
+                time.sleep(wait)
+                continue
 
-        if "errors" in data:
-            raise RuntimeError(f"Subgraph query error: {data['errors']}")
+            data = resp.json()
+
+            if "errors" in data:
+                err_msg = data["errors"][0].get("message", "")
+                if "timed out" in err_msg.lower() or "timeout" in err_msg.lower():
+                    page_size = max(100, page_size // 2)
+                    wait = 2 ** attempt
+                    print(f"  Subgraph timeout, reducing page size to {page_size}, retrying in {wait}s (attempt {attempt + 1}/4)...")
+                    time.sleep(wait)
+                    continue
+                raise RuntimeError(f"Subgraph query error: {data['errors']}")
+
+            break  # success
+        else:
+            raise RuntimeError("Subgraph query failed after 4 attempts")
 
         events = data["data"]["orderFilledEvents"]
         if not events:
@@ -95,6 +127,10 @@ def _run_subgraph_query(query: str, token_ids: list[str]) -> list[dict]:
         all_events.extend(events)
         last_id = events[-1]["id"]
         print(f"  Fetched {len(all_events)} events so far...")
+
+        # Gradually restore page size after a successful reduced-size fetch
+        if page_size < 1000:
+            page_size = min(1000, page_size * 2)
 
     return all_events
 
