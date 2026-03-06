@@ -123,7 +123,7 @@ def plot_wallet_distribution(
     plt.tight_layout(rect=[0.02, 0.08, 0.98, 0.84])
     fig.savefig(output_path, dpi=200, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    print(f"Chart 1 saved to {output_path}")
+    print(f"Wallet distribution chart saved to {output_path}")
 
 
 def plot_hourly_volume(
@@ -260,4 +260,4 @@ def plot_hourly_volume(
     plt.tight_layout(rect=[0.02, 0.06, 0.98, 0.92])
     fig.savefig(output_path, dpi=200, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    print(f"Chart 2 saved to {output_path}")
+    print(f"Hourly volume chart saved to {output_path}")

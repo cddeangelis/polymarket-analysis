@@ -45,8 +45,10 @@ def main():
     print("\nAggregating hourly data...")
     hourly_df = aggregate_hourly(trades_df, wallet_df)
 
-    chart1_path = os.path.join(args.output_dir, "chart-1-output.png")
-    chart2_path = os.path.join(args.output_dir, "chart-2-output.png")
+    charts_dir = os.path.join(args.output_dir, "charts", args.slug)
+    os.makedirs(charts_dir, exist_ok=True)
+    chart1_path = os.path.join(charts_dir, "wallet-distribution.png")
+    chart2_path = os.path.join(charts_dir, "hourly-volume.png")
 
     print("\nGenerating Chart 1 (wallet distribution)...")
     plot_wallet_distribution(
