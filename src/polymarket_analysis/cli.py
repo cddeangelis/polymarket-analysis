@@ -58,7 +58,11 @@ def main():
     )
 
     print("\nGenerating Chart 2 (hourly volume)...")
-    plot_hourly_volume(hourly_df, market["question"], chart2_path)
+    plot_hourly_volume(
+        hourly_df, market["question"], chart2_path,
+        small_threshold=args.small_threshold,
+        large_threshold=args.large_threshold,
+    )
 
     print("\nDone!")
 

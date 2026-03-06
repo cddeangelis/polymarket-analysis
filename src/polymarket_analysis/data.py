@@ -152,7 +152,7 @@ def _parse_event(event: dict) -> dict:
     return {
         "id": event["id"],
         "timestamp": int(event["timestamp"]),
-        "wallet": event["taker"],
+        "wallet": event["maker"],
         "side": side,
         "token_id": token_id,
         "amount_usd": amount_raw / 1e6,

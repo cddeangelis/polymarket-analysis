@@ -130,6 +130,8 @@ def plot_hourly_volume(
     hourly_df: pd.DataFrame,
     question: str,
     output_path: str,
+    small_threshold: int = 1_000,
+    large_threshold: int = 100_000,
 ):
     fig, ax = plt.subplots(figsize=(10, 8))
 
@@ -251,8 +253,8 @@ def plot_hourly_volume(
         f'Note: Data for the "{question}" market on Polymarket. '
         f"All times are for the UTC timezone. "
         f"Wallet size is based on the maximum cumulative wager (high-water mark) "
-        f"across outcomes: small ($1,000 or less); "
-        f"medium ($1,000 to $100,000); large (more than $100,000).",
+        f"across outcomes: small (${small_threshold:,} or less); "
+        f"medium (${small_threshold:,} to ${large_threshold:,}); large (more than ${large_threshold:,}).",
         fontsize=6.5, color="#666", ha="left", va="bottom",
         transform=fig.transFigure,
     )

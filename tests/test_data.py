@@ -36,7 +36,7 @@ class TestParseEvent:
         assert result["side"] == "buy"
         assert result["token_id"] == "token_yes"
         assert result["amount_usd"] == 5.0
-        assert result["wallet"] == "0xtaker"
+        assert result["wallet"] == "0xmaker"
         assert result["id"] == "evt1"
 
     def test_sell_side(self):
